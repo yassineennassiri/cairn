@@ -32,6 +32,13 @@ export default function Home() {
     fetchLinks();
   }
 
+  async function handleDelete(id: number) {
+  await fetch(`/api/links/${id}`, {
+    method: "DELETE",
+  });
+  fetchLinks();
+  } 
+
   return (
     <main className="max-w-xl mx-auto p-8">
       <h1 className="text-2xl font-bold mb-4">Cairn</h1>
@@ -54,8 +61,14 @@ export default function Home() {
 
       <ul className="space-y-2">
         {links.map((link) => (
-          <li key={link.id} className="border rounded px-3 py-2">
-            {link.url}
+          <li key={link.id} className="flex justify-between items-center border rounded px-3 py-2">
+            <span>{link.url}</span>
+            <button
+              onClick={() => handleDelete(link.id)}
+              className="text-red-600"
+            >
+              Delete
+            </button>
           </li>
         ))}
       </ul>
