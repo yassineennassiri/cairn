@@ -6,11 +6,14 @@ type Link = {
   id: number;
   url: string;
   createdAt: string;
+  title: string | null;
 };
 
 export default function Home() {
   const [url, setUrl] = useState("");
   const [links, setLinks] = useState<Link[]>([]);
+  const [error, setError] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
 
   async function fetchLinks() {
     const res = await fetch("/api/links");
@@ -23,14 +26,31 @@ export default function Home() {
   }, []);
 
   async function handleSave() {
-    await fetch("/api/links", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
+  if (saving) return
+  setError(null)
+  setSaving(true)
+
+  try {
+    const res = await fetch('/api/links', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ url }),
-    });
-    setUrl("");
-    fetchLinks();
+    })
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => null)
+      setError(data?.error ?? 'Something went wrong. Please try again.')
+      return
+    }
+
+    setUrl('')
+    await fetchLinks()
+  } catch {
+    setError('Could not reach Cairn. Check your connection.')
+  } finally {
+    setSaving(false)
   }
+}
 
   async function handleDelete(id: number) {
   await fetch(`/api/links/${id}`, {
@@ -51,18 +71,23 @@ export default function Home() {
           placeholder="Paste a URL"
           className="flex-1 border rounded px-3 py-2"
         />
-        <button
-          onClick={handleSave}
-          className="bg-black text-white rounded px-4 py-2"
-        >
-          Save
-        </button>
+      <button
+        onClick={handleSave}
+        disabled={saving}
+        className="bg-black text-white rounded px-4 py-2 disabled:opacity-50"
+      >
+        {saving ? 'Saving...' : 'Save'}
+      </button>
       </div>
+      {error && <p className="text-red-600 text-sm mt-2">{error}</p>}
 
       <ul className="space-y-2">
         {links.map((link) => (
           <li key={link.id} className="flex justify-between items-center border rounded px-3 py-2">
-            <span>{link.url}</span>
+            <span>
+              {link.title ?? <span className="text-gray-400 italic">Unavailable</span>}
+              <span className="block text-xs text-gray-500">{link.url}</span>
+            </span>
             <button
               onClick={() => handleDelete(link.id)}
               className="text-red-600"
