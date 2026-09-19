@@ -17,8 +17,14 @@ export default function Home() {
 
   async function fetchLinks() {
     const res = await fetch("/api/links");
+
+    if (!res.ok) {
+      setLinks([]);
+      return;
+    }
+
     const data = await res.json();
-    setLinks(data);
+    setLinks(Array.isArray(data) ? data : []);
   }
 
   useEffect(() => {

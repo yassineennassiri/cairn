@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { auth } from "@/lib/auth";
 
 export async function POST(request: Request) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Not signed in" }, { status: 401 });
+  }
   const body = await request.json();
   let parsed: URL
   try {
@@ -41,6 +46,7 @@ export async function POST(request: Request) {
     data: {
       url: parsed.href,
       title: title,
+      userId: session.user.id,
     },
   });
 
@@ -48,8 +54,13 @@ export async function POST(request: Request) {
 }
 
 export async function GET() {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Not signed in" }, { status: 401 });
+  }
   const links = await prisma.link.findMany({
-    orderBy: { createdAt: "desc"},
+    where: { userId: session.user.id },
+    orderBy: { createdAt: "desc" },
     take: 100,
   });
 
