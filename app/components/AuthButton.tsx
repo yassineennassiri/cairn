@@ -1,4 +1,5 @@
 import { auth, signIn, signOut } from "@/lib/auth";
+import SignOutButton from "@/app/components/SignOutButton";
 
 export default async function AuthButton() {
   const session = await auth();
@@ -21,16 +22,7 @@ export default async function AuthButton() {
   return (
     <div className="flex items-center gap-3">
       <span className="text-sm text-gray-600">{session.user.email}</span>
-      <form
-        action={async () => {
-          "use server";
-          await signOut();
-        }}
-      >
-        <button type="submit" className="text-sm underline">
-          Sign out
-        </button>
-      </form>
+      <SignOutButton />
     </div>
   );
 }
