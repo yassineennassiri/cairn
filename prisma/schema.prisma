@@ -61,10 +61,17 @@ model VerificationToken {
 }
 
 model Link {
-  id        Int      @id @default(autoincrement())
-  url       String
-  createdAt DateTime @default(now())
-  userId    String
-  user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  title     String?
+  id            Int      @id @default(autoincrement())
+  url           String
+  createdAt     DateTime @default(now())
+  userId        String
+  user          User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title         String?
+  titleStatus   TitleStatus @default(PENDING)
+}
+
+enum TitleStatus {
+  PENDING
+  DONE
+  FAILED
 }
