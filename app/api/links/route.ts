@@ -25,7 +25,7 @@ async function fetchAndStoreTitle(linkId: number, url: string) {
     // unreachable, refused, or timed out: title stays null
   }
 
-  await prisma.link.update({
+  await prisma.link.updateMany({
     where: { id: linkId },
     data: {
       title: title,
