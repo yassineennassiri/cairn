@@ -1,6 +1,38 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+
+// How long the background fetch waits for a website before giving up.
+// Must stay well below the polling ceiling in app/page.tsx (30 s),
+// otherwise a late title lands after the page has stopped asking.
+const TITLE_FETCH_TIMEOUT_MS = 20_000;
+
+// Runs after the response has been sent: fetch the page, then record the outcome.
+async function fetchAndStoreTitle(linkId: number, url: string) {
+  let title: string | null = null;
+
+  try {
+    const pageResponse = await fetch(url, {
+      signal: AbortSignal.timeout(TITLE_FETCH_TIMEOUT_MS),
+    });
+
+    if (pageResponse.ok) {
+      const html = await pageResponse.text();
+      const match = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+      title = match ? match[1].trim() : null;
+    }
+  } catch {
+    // unreachable, refused, or timed out: title stays null
+  }
+
+  await prisma.link.update({
+    where: { id: linkId },
+    data: {
+      title: title,
+      titleStatus: title ? "DONE" : "FAILED",
+    },
+  });
+}
 
 export async function POST(request: Request) {
   const session = await auth();
@@ -8,47 +40,35 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Not signed in" }, { status: 401 });
   }
   const body = await request.json();
-  let parsed: URL
+  let parsed: URL;
   try {
-    parsed = new URL(body.url)
+    parsed = new URL(body.url);
   } catch {
     return NextResponse.json(
-      { error: 'That does not look like a valid URL.' },
+      { error: "That does not look like a valid URL." },
       { status: 400 }
-    )
+    );
   }
 
-  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
     return NextResponse.json(
-      { error: 'Only http and https links can be saved.' },
+      { error: "Only http and https links can be saved." },
       { status: 400 }
-    )
+    );
   }
 
-  // after the protocol check, before prisma.link.create
-  let title: string | null = null
+  const url = parsed.href;
 
-  try {
-    const pageResponse = await fetch(parsed.href, {
-      signal: AbortSignal.timeout(5000),
-    })
-
-    if (pageResponse.ok) {
-      const html = await pageResponse.text()
-      const match = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)
-      title = match ? match[1].trim() : null
-    }
-  } catch {
-    // unreachable, refused, or timed out: title stays null
-  }
-
+  // Save now, with no title. titleStatus starts as PENDING by default.
   const link = await prisma.link.create({
     data: {
-      url: parsed.href,
-      title: title,
+      url: url,
       userId: session.user.id,
     },
   });
+
+  // Hand the slow work to after(): it runs once the 201 below has been sent.
+  after(() => fetchAndStoreTitle(link.id, url));
 
   return NextResponse.json(link, { status: 201 });
 }
